@@ -1,13 +1,22 @@
+# -*- coding: utf-8 -*-
 from .utils import object_list_to_table, equal_lists
-from django.test import TestCase
-from django.test.simple import DjangoTestSuiteRunner
-from django.utils.unittest import TextTestRunner
-import sys
+from django.test import TestCase as DjangoTestCase
+from google.appengine.ext import db
+import os
+import unittest
 
-try:
-    from StringIO import StringIO
-except ImportError:
-    from cStringIO import StringIO
+class TestCase(DjangoTestCase):
+    def setUp(self):
+        self.setup()
+
+    def tearDown(self):
+        self.teardown()
+
+    def setup(self):
+        pass
+
+    def teardown(self):
+        pass
 
 class ModelTestCase(TestCase):
     """
@@ -45,8 +54,3 @@ class ModelTestCase(TestCase):
             for state in state_table:
                 print state
             self.fail('DB state not valid')
-
-class CapturingTestSuiteRunner(DjangoTestSuiteRunner):
-    """Captures stdout/stderr during test and shows them next to tracebacks"""
-    def run_suite(self, suite, **kwargs):
-        return TextTestRunner(verbosity=self.verbosity, failfast=self.failfast, buffer=True).run(suite)

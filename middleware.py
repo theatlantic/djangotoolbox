@@ -1,14 +1,11 @@
+# -*- coding: utf-8 -*-
 from django.conf import settings
-from django.http import HttpResponseRedirect
 from django.utils.cache import patch_cache_control
+from google.appengine.runtime.apiproxy_errors import CapabilityDisabledError
+from google.appengine.ext import db
 
 LOGIN_REQUIRED_PREFIXES = getattr(settings, 'LOGIN_REQUIRED_PREFIXES', ())
 NO_LOGIN_REQUIRED_PREFIXES = getattr(settings, 'NO_LOGIN_REQUIRED_PREFIXES', ())
-
-ALLOWED_DOMAINS = getattr(settings, 'ALLOWED_DOMAINS', None)
-NON_REDIRECTED_PATHS = getattr(settings, 'NON_REDIRECTED_PATHS', ())
-NON_REDIRECTED_BASE_PATHS = tuple(path.rstrip('/') + '/'
-                                  for path in NON_REDIRECTED_PATHS)
 
 class LoginRequiredMiddleware(object):
     """
@@ -27,27 +24,6 @@ class LoginRequiredMiddleware(object):
                 return redirect_to_login(request.get_full_path())
         return None
 
-class RedirectMiddleware(object):
-    """
-    A static redirect middleware. Mostly useful for hosting providers that
-    automatically setup an alternative domain for your website. You might
-    not want anyone to access the site via those possibly well-known URLs.
-    """
-    def process_request(self, request):
-        host = request.get_host().split(':')[0]
-        # Turn off redirects when in debug mode, running unit tests, or
-        # when handling an App Engine cron job.
-        if (settings.DEBUG or host == 'testserver' or
-                not ALLOWED_DOMAINS or
-                request.META.get('HTTP_X_APPENGINE_CRON') == 'true' or
-                request.path.startswith('/_ah/') or
-                request.path in NON_REDIRECTED_PATHS or
-                request.path.startswith(NON_REDIRECTED_BASE_PATHS)):
-            return
-        if host not in settings.ALLOWED_DOMAINS:
-            return HttpResponseRedirect('http://' + settings.ALLOWED_DOMAINS[0]
-                                        + request.path)
-
 class NoHistoryCacheMiddleware(object):
     """
     If user is authenticated we disable browser caching of pages in history.
@@ -60,3 +36,11 @@ class NoHistoryCacheMiddleware(object):
             patch_cache_control(response,
                 no_store=True, no_cache=True, must_revalidate=True, max_age=0)
         return response
+
+class ErrorMiddleware(object):
+    """Displays a default template on CapabilityDisabledError."""
+    def process_exception(self, request, exception):
+        if isinstance(exception, CapabilityDisabledError):
+            return maintenance(request)
+        elif isinstance(exception, db.Timeout):
+            return server_error(request)
