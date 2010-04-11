@@ -8,7 +8,7 @@ from django.utils.tree import Node
 import random
 
 EMULATED_OPS = {
-    'exact': lambda x, y: x == y,
+    'exact': lambda x, y: y in x if isinstance(x, (list,tuple)) else x == y,
     'iexact': lambda x, y: x.lower() == y.lower(),
     'startswith': lambda x, y: x.startswith(y),
     'istartswith': lambda x, y: x.lower().startswith(y.lower()),
@@ -295,10 +295,9 @@ class NonrelCompiler(SQLCompiler):
         for order in ordering:
             if LOOKUP_SEP in order:
                 raise DatabaseError("Ordering can't span tables on non-relational backends (%s)" % order)
-
             if order == '?':
-                result.append(order)
-                continue
+                raise DatabaseError("Randomized ordering isn't supported by the backend")
+
             order = order.lstrip('+')
 
             descending = order.startswith('-')
@@ -328,6 +327,11 @@ class NonrelInsertCompiler(object):
                     value)
             data[column] = value
         return self.insert(data, return_id=return_id)
+
+class NonrelUpdateCompiler(object):
+    def execute_sql(self, result_type=MULTI):
+        # TODO: We don't yet support QuerySet.update() in Django-nonrel
+        raise NotImplementedError('No updates')
 
 class NonrelDeleteCompiler(object):
     def execute_sql(self, result_type=MULTI):
