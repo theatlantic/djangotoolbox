@@ -1,4 +1,5 @@
-from setuptools import setup, find_packages
+from setuptools import setup
+import os
 
 DESCRIPTION = "Djangotoolbox for Django-nonrel"
 
@@ -20,9 +21,10 @@ CLASSIFIERS = [
 ]
 
 setup(name='djangotoolbox',
-      packages=find_packages(exclude=('tests', 'tests.*')),
+      packages=['djangotoolbox'],
       author='Waldemar Kornewald',
       url='http://www.allbuttonspressed.com/projects/djangotoolbox',
+      include_package_data=True,
       description=DESCRIPTION,
       long_description=LONG_DESCRIPTION,
       platforms=['any'],
