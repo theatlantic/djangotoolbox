@@ -5,10 +5,9 @@ from django.core.exceptions import ValidationError
 
 __all__ = ('GenericField', 'ListField', 'DictField', 'SetField', 'BlobField')
 
-class RawField(models.Field):
+class GenericField(models.Field):
     """ Generic field to store anything your database backend allows you to. """
-    def get_internal_type(self):
-        return 'RawField'
+    pass
 
 class AbstractIterableField(models.Field):
     """
@@ -21,8 +20,6 @@ class AbstractIterableField(models.Field):
     appropriate data type.
     """
     def __init__(self, item_field=None, *args, **kwargs):
-        if item_field is None:
-            item_field = RawField()
         self.item_field = item_field
         default = kwargs.get('default', None if kwargs.get('null') else ())
         if default is not None and not callable(default):
@@ -31,13 +28,16 @@ class AbstractIterableField(models.Field):
         super(AbstractIterableField, self).__init__(*args, **kwargs)
 
     def contribute_to_class(self, cls, name):
-        self.item_field.model = cls
-        self.item_field.name = name
+        if self.item_field is not None:
+            self.item_field.model = cls
+            self.item_field.name = name
         super(AbstractIterableField, self).contribute_to_class(cls, name)
 
     def db_type(self, connection):
-        item_db_type = self.item_field.db_type(connection=connection)
-        return '%s:%s' % (self.__class__.__name__, item_db_type)
+        name = self.__class__.__name__
+        if self.item_field:
+            name += ':' + self.item_field.db_type(connection=connection)
+        return name
 
     def _convert(self, func, values, *args, **kwargs):
         if isinstance(values, (list, tuple, set)):
@@ -123,7 +123,15 @@ class BlobField(models.Field):
 
     In the latter case, the object has to provide a ``read`` method from which
     the blob is read.
+
+    If the optional keyword arguments `close_files` is ``True``, the ``close``
+    method of file-like values will be called after ``read``ing the contents
+    (if such a method exists at all).
     """
+    def __init__(self, *args, **kwargs):
+        self.close_files = kwargs.pop('close_files', False)
+        super(BlobField, self).__init__(*args, **kwargs)
+
     def get_internal_type(self):
         return 'BlobField'
 
@@ -138,7 +146,9 @@ class BlobField(models.Field):
 
     def get_db_prep_value(self, value, connection, prepared=False):
         if hasattr(value, 'read'):
-            return value.read()
+            content = value.read()
+            if self.close_files and hasattr(value, 'close'):
+                value.close()
         else:
             return str(value)
 
