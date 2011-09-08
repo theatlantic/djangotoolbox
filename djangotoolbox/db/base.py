@@ -25,7 +25,11 @@ class NonrelDatabaseFeatures(BaseDatabaseFeatures):
 class NonrelDatabaseOperations(BaseDatabaseOperations):
     def __init__(self, connection):
         self.connection = connection
-        super(NonrelDatabaseOperations, self).__init__()
+        # Django 1.4 passes connection to __init__(), 1.3 and below does not
+        try:
+            super(NonrelDatabaseOperations, self).__init__()
+        except TypeError:
+            super(NonrelDatabaseOperations, self).__init__(connection)
 
     def quote_name(self, name):
         return name
