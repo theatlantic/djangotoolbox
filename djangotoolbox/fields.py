@@ -53,7 +53,7 @@ class AbstractIterableField(models.Field):
         super(AbstractIterableField, self).contribute_to_class(cls, name)
 
         metaclass = getattr(self.item_field, '__metaclass__', None)
-        if issubclass(metaclass, models.SubfieldBase):
+        if metaclass is not None and issubclass(metaclass, models.SubfieldBase):
             setattr(cls, self.name, _HandleAssignment(self))
 
     @property
